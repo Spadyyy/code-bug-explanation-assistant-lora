@@ -2,19 +2,19 @@
 
 An educational mini-project that fine-tunes `Qwen/Qwen2.5-Coder-0.5B-Instruct` with Low-Rank Adaptation (LoRA) to generate explanations and suggested corrections for buggy Python code.
 
-> **Project status:** prototype/demo. The training dataset is small and synthetic. Outputs may be incorrect; this project is not a production debugging tool or a benchmark of real-world accuracy.
+> **Project status:** prototype/demo. The training data is a 10-example synthetic dataset. Outputs may be incorrect; this is not a production debugging tool or a benchmark of real-world accuracy. No performance metrics are claimed until actual run outputs have been reviewed.
 
 ## Project objectives
 
 - Explore parameter-efficient fine-tuning with PEFT/LoRA.
 - Build a simple interface where a user can submit buggy Python code.
 - Generate a natural-language explanation and a possible correction.
-- Compare model outputs on examples and document limitations.
+- Record qualitative results on held-out examples.
 
 ## How it works
 
-1. Load and inspect the example dataset.
-2. Prepare prompts and split examples into training and evaluation sets.
+1. Generate a small synthetic dataset of Python bug examples.
+2. Split examples into training and test sets.
 3. Load the base code model and configure LoRA adapters.
 4. Fine-tune the model.
 5. Generate explanations for test snippets.
@@ -23,10 +23,11 @@ An educational mini-project that fine-tunes `Qwen/Qwen2.5-Coder-0.5B-Instruct` w
 ## Technology stack
 
 - Python and Google Colab
+- PyTorch
 - Hugging Face Transformers and Datasets
 - PEFT (LoRA)
-- PyTorch
 - Gradio
+- scikit-learn (dataset split)
 
 ## Model configuration
 
@@ -34,23 +35,61 @@ An educational mini-project that fine-tunes `Qwen/Qwen2.5-Coder-0.5B-Instruct` w
 - **LoRA rank (r):** 8
 - **LoRA alpha:** 16
 - **LoRA dropout:** 0.05
-- **Target modules:** `q_proj`, `k_proj`, `v_proj`, `o_proj` (as configured in the notebook)
+- **Target modules:** `q_proj`, `k_proj`, `v_proj`, `o_proj`
 
-Check the notebook itself for the definitive dataset size, split, training arguments, and current implementation. Do not assume a metric or result that has not been recorded from an actual run.
+The notebook is the primary reference for the training configuration and sequence of steps.
 
-## Getting started
+## Repository structure
 
-1. Open `Code_Bug_Explanation_Assistant_Documented.ipynb` in [Google Colab](https://colab.research.google.com/).
-2. Choose **Runtime → Change runtime type** and select a GPU if one is available.
+```text
+.
+├── README.md
+├── requirements.txt
+├── Code_Bug_Explanation_Assistant_Documented.ipynb
+├── src/
+│   ├── generate_dataset.py
+│   └── app.py
+├── results/
+│   ├── evaluation_results.csv
+│   └── results.md
+└── screenshots/
+    └── .gitkeep
+```
+
+## Getting started: train in Google Colab
+
+1. Open [the documented notebook](Code_Bug_Explanation_Assistant_Documented.ipynb) in Google Colab.
+2. Choose **Runtime → Change runtime type** and select a GPU if available.
 3. Run the notebook cells from top to bottom.
-4. Test the interface with a few examples, including an off-by-one error and division by zero.
-5. Inspect the generated explanations and fixes before treating them as correct.
+4. Review the model's actual responses and training metrics. The dataset is intentionally tiny and synthetic.
 
-The notebook may install its own dependencies. `requirements.txt` lists the main packages for reference; GPU-specific PyTorch installation can depend on the runtime.
+The notebook generates `bug_train.jsonl` and `bug_test.jsonl` from 10 examples using an 80/20 split (8 training examples and 2 test examples).
+
+## Generate the dataset locally
+
+Install dependencies first, then run:
+
+```bash
+python -m pip install -r requirements.txt
+python src/generate_dataset.py
+```
+
+This writes `bug_train.jsonl` and `bug_test.jsonl` in the repository root. The notebook also contains its own dataset-generation cells.
+
+## Run the standalone Gradio app
+
+The app needs a trained LoRA adapter. After running the notebook's adapter-saving cell, put the resulting `final_adapter` directory at `bug_explanation_lora/final_adapter` in the repository root, or point `LORA_ADAPTER_PATH` to the adapter directory.
+
+```bash
+python -m pip install -r requirements.txt
+python src/app.py
+```
+
+The app loads the base model and the saved adapter. The base model may require a first-time internet download and sufficient RAM/VRAM. GPU-specific PyTorch installation can depend on your operating system and CUDA version. The Gradio app runs locally by default; do not expose it publicly without considering privacy and resource use.
 
 ## Example test cases
 
-### 1. Off-by-one error
+### 1. Off-by-one / invalid list index
 
 ```python
 numbers = [10, 20, 30]
@@ -69,49 +108,43 @@ def divide(a, b):
 print(divide(10, 0))
 ```
 
-Expected issue to look for: the function does not handle a zero divisor. A suitable fix depends on the program's intended behavior, such as validating the divisor and returning or raising an appropriate error.
+Expected issue to look for: the function does not handle a zero divisor. A suitable fix depends on the program's intended behavior.
 
-These are reference test cases, not claims that the model always diagnoses them correctly.
+These are reference cases, not claims that the model always diagnoses them correctly.
 
 ## Results and evaluation
 
-Record the outputs from your own run before reporting performance. For each test case, check whether the model:
+See [results/results.md](results/results.md) for the evaluation procedure and [results/evaluation_results.csv](results/evaluation_results.csv) for a blank recording template.
+
+Record the actual model response for each test case. Review whether it:
 - identifies the actual bug,
-- gives a valid explanation,
-- suggests a syntactically plausible fix.
+- explains the cause correctly,
+- suggests a syntactically plausible and appropriate fix.
 
-| Test case | Actual observation | Correct diagnosis? | Fix valid? |
-|---|---|---|---|
-| Off-by-one / list index | Fill in from your run | Yes / No / Partial | Yes / No / Partial |
-| Division by zero | Fill in from your run | Yes / No / Partial | Yes / No / Partial |
+Do not report accuracy, loss, or other numerical results unless they come from an actual run. The held-out test split contains only two examples, so it is not sufficient to establish general reliability.
 
-Do not report accuracy, loss, or other numerical results unless they come from the notebook's actual output. A tiny test set is not enough to establish general reliability.
+## Screenshots
+
+The `screenshots/` folder is prepared, but genuine screenshots have not yet been committed. After launching the demo, capture:
+- the Gradio interface,
+- a representative bug input and its generated response,
+- another distinct test case and its response.
+
+Save the images in `screenshots/` and add them to this section. Do not use mockups as evidence of a real model run.
 
 ## Limitations
 
-- Small, synthetic examples may not represent real code defects.
-- Performance can vary across bug types and prompts.
+- Small synthetic examples may not represent real code defects.
+- A two-example test set is far too small for robust performance claims.
 - Generated code can be incorrect, incomplete, or unsafe to run.
-- Evaluation on a small test split is not evidence of general debugging ability.
-- The demo should be treated as an educational experiment; review all suggested fixes.
+- Training loss is not the same as debugging accuracy.
+- Review suggested fixes before using them.
 
 ## Future improvements
 
 - Add a larger, diverse, manually reviewed dataset.
-- Keep training, validation, and test sets separate.
+- Keep training, validation, and test data separate.
 - Evaluate with a documented rubric and executable unit tests.
 - Compare base-model and LoRA outputs on the same held-out examples.
 - Record package versions, training configuration, and actual results.
-- Add screenshots of the running interface and representative test outputs.
-
-## Repository structure
-
-```text
-.
-├── README.md
-├── requirements.txt
-├── .gitignore
-└── Code_Bug_Explanation_Assistant_Documented.ipynb
-```
-
-If you add screenshots later, place only genuine screenshots from your own run in a `screenshots/` directory and update this README with their paths.
+- Add genuine screenshots from the running interface.
