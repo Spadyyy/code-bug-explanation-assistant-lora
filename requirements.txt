@@ -1,5 +1,5 @@
-# Core packages used by the notebook. In Google Colab, the notebook may install
-# compatible versions directly. Install PyTorch appropriate for your environment.
+# Core packages used by the notebook and standalone demo.
+# Install a PyTorch build suitable for your OS/CUDA environment if needed.
 torch
 transformers
 datasets
@@ -8,3 +8,4 @@ accelerate
 gradio
 pandas
 safetensors
+scikit-learn
